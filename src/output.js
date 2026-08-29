@@ -63,23 +63,42 @@ export async function saveImage(dir, name, buffer) {
   return path;
 }
 
+/** True when a PNG buffer carries an alpha channel (IHDR colour type 4 or 6). */
+function hasAlpha(buffer) {
+  const isPng =
+    buffer.length > 26 &&
+    buffer[0] === 0x89 &&
+    buffer.toString("latin1", 1, 4) === "PNG" &&
+    buffer.toString("latin1", 12, 16) === "IHDR";
+  return isPng && (buffer[25] === 4 || buffer[25] === 6);
+}
+
 /**
- * Produce a small JPEG the model can actually look at without blowing up the
+ * Produce a small image the model can actually look at without blowing up the
  * context. Uses macOS `sips`; elsewhere it falls back to inlining the original
  * when it is small enough, and to no preview at all when it is not.
+ *
+ * Transparent images must stay PNG: a JPEG preview flattens alpha to white,
+ * which reads as "the transparent background did not work" and provokes a
+ * pointless re-render. Everything else goes to JPEG, which is far smaller.
  */
 export async function makePreview(path, buffer) {
-  const out = join(tmpdir(), `mcp-img-preview-${process.pid}-${Math.random().toString(36).slice(2)}.jpg`);
+  const alpha = hasAlpha(buffer);
+  const ext = alpha ? "png" : "jpg";
+  const out = join(tmpdir(), `mcp-img-preview-${process.pid}-${Math.random().toString(36).slice(2)}.${ext}`);
   try {
     await run("sips", [
       "-Z", String(PREVIEW_EDGE),
-      "-s", "format", "jpeg",
-      "-s", "formatOptions", "70",
+      "-s", "format", alpha ? "png" : "jpeg",
+      ...(alpha ? [] : ["-s", "formatOptions", "70"]),
       path,
       "--out", out,
     ]);
     const data = await readFile(out);
-    return { mimeType: "image/jpeg", base64: data.toString("base64") };
+    return {
+      mimeType: alpha ? "image/png" : "image/jpeg",
+      base64: data.toString("base64"),
+    };
   } catch {
     if (buffer.length <= RAW_INLINE_LIMIT) {
       return { mimeType: "image/png", base64: buffer.toString("base64") };
