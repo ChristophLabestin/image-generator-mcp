@@ -1,0 +1,21 @@
+{
+  "name": "image-generator-mcp",
+  "version": "1.0.0",
+  "description": "MCP server that lets Claude generate and edit images with OpenAI's GPT Image models",
+  "type": "module",
+  "bin": {
+    "image-generator-mcp": "src/index.js"
+  },
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "smoke": "node scripts/smoke.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.5.2"
+  }
+}
